@@ -1,3 +1,5 @@
+let isModalOpen = false;
+
 const starterOptions = [
   {
     name: "Charmander",
@@ -166,6 +168,8 @@ function drawMap() {
 }
 
 function movePlayer(dx, dy) {
+  if (isModalOpen || battle.inBattle) return; // ⛔ Block movement during modal or battle
+
   const newX = player.x + dx;
   const newY = player.y + dy;
   if (map[newY][newX] !== 1) {
@@ -579,6 +583,8 @@ function updateAttackButtons() {
 }
 
 function chooseActivePokemon() {
+  isModalOpen = true;
+
   const modal = document.createElement("div");
   modal.id = "chooseModal";
   modal.classList.add(
@@ -590,7 +596,8 @@ function chooseActivePokemon() {
     "bg-white",
     "p-4",
     "shadow-lg",
-    "rounded-xl"
+    "rounded-xl",
+    "z-30"
   );
   modal.style = "transform:translate(-50%,-50%)";
 
@@ -601,6 +608,7 @@ function chooseActivePokemon() {
     btn.style.opacity = mon.currentHP <= 0 ? "0.5" : "1";
     btn.onclick = () => {
       document.body.removeChild(modal);
+      isModalOpen = false;
       startBattleWith(mon);
     };
     modal.appendChild(btn);
