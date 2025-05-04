@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Mini RPG</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        background: url(assets/bg.jpg);
+        background-size: cover;
+        background-position: center;
+        position: relative;
+        z-index: 1;
+        min-height: 100vh;
+      }
+      body:before {
+        content: "";
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        background-color: rgba(0, 0, 0, 0.4);
+      }
+      canvas {
+        image-rendering: pixelated;
+      }
+      .hp-bar {
+        width: 200px;
+        height: 16px;
+        background-color: #ccc;
+        margin: auto;
+        border: 1px solid #000;
+      }
+
+      .hp-fill {
+        height: 100%;
+        background-color: green;
+        width: 100%;
+        transition: width 0.3s ease-in-out;
+      }
+      #toast {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #333;
+        color: #fff;
+        padding: 12px 20px;
+        border-radius: 6px;
+        font-size: 16px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.5s ease;
+        z-index: 9999;
+      }
+      #toast.show {
+        opacity: 1;
+      }
+      body.battle-flash::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: white;
+        opacity: 1;
+        z-index: 99999;
+        animation: flashFade 0.3s ease-out forwards;
+        pointer-events: none;
+      }
+      #attackButtons button {
+        background: #009688;
+        padding: 10px;
+        font-size: 16px;
+        border-radius: 6px;
+      }
+
+      button {
+        touch-action: manipulation;
+      }
+
+      @keyframes flashFade {
+        0% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+    </style>
+  </head>
+  <body class="px-3">
+    <div
+      id="resetOverlay"
+      class="fixed inset-0 bg-black bg-opacity-70 z-[99999] hidden items-center justify-center text-white text-xl font-bold"
+    >
+      Resetting Game...
+    </div>
+
+    <img
+      src="assets/logo.png"
+      alt="Pokemon"
+      class="block w-full px-4 mb-4 max-w-[200px] mx-auto"
+    />
+
+    <div
+      id="starterScreen"
+      style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: white;
+        z-index: 999;
+        display: none;
+        text-align: center;
+        padding: 20px;
+      "
+    >
+      <h2>Choose Your Starter Pokémon</h2>
+      <div id="starterChoices"></div>
+    </div>
+
+    <canvas
+      class="block mx-auto z-10 relative bg-white w-full max-w-[400px]"
+      id="gameCanvas"
+      width="400"
+      height="400"
+    ></canvas>
+
+    <div class="flex justify-center my-4 md:hidden relative">
+      <div class="grid grid-cols-3 gap-2 text-white text-xl font-bold">
+        <div></div>
+        <button
+          onclick="movePlayer(0, -1)"
+          class="bg-gray-800 p-4 rounded-full"
+        >
+          ⬆
+        </button>
+        <div></div>
+        <button
+          onclick="movePlayer(-1, 0)"
+          class="bg-gray-800 p-4 rounded-full"
+        >
+          ⬅
+        </button>
+        <div></div>
+        <button onclick="movePlayer(1, 0)" class="bg-gray-800 p-4 rounded-full">
+          ➡
+        </button>
+        <div></div>
+        <button onclick="movePlayer(0, 1)" class="bg-gray-800 p-4 rounded-full">
+          ⬇
+        </button>
+      </div>
+    </div>
+
+    <section class="bg-gray-100 p-4 w-full max-w-[400px] mx-auto z-10 relative">
+      <button onclick="openBag()">
+        <svg
+          viewBox="0 0 1024 1024"
+          class="icon w-20 h-20"
+          version="1.1"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="#000000"
+        >
+          <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+          <g
+            id="SVGRepo_tracerCarrier"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          ></g>
+          <g id="SVGRepo_iconCarrier">
+            <path
+              d="M819 234l-48-13 48-13 13-48 13 48 48 13-48 13-13 48-13-48zM867 287l-19-5 19-4 4-19 4 19 19 4-19 5-4 19-4-19z"
+              fill="#FDCD60"
+            ></path>
+            <path
+              d="M130 472l-21-5 21-5 5-21 5 21 21 5-21 5-5 20-5-20z"
+              fill="#FDCD60"
+            ></path>
+            <path
+              d="M208 246m-9 0a9 9 0 1 0 18 0 9 9 0 1 0-18 0Z"
+              fill="#5546CB"
+            ></path>
+            <path
+              d="M824 804a25 25 0 1 1 25-25 25 25 0 0 1-25 25z m0-36a10 10 0 1 0 10 10 10 10 0 0 0-10-9z"
+              fill="#5546CB"
+            ></path>
+            <path d="M166 728h78v77.34h-78z" fill="#FDCD60"></path>
+            <path
+              d="M452 509v43h128v-43a19 19 0 0 1 14-18H438a19 19 0 0 1 14 18z"
+              fill="#F97744"
+            ></path>
+            <path
+              d="M661 489h1a19 19 0 0 1 19 19v43h32v114a74 74 0 0 1-74 74H387a73 73 0 0 1-73-73V552h38v-43a19 19 0 0 1 19-19h1a116 116 0 0 1-83-50v337a31 31 0 0 0 31 31h386a31 31 0 0 0 31-31V440a116 116 0 0 1-76 49z"
+              fill="#F97744"
+            ></path>
+            <path
+              d="M334 666a53 53 0 0 0 53 53h251a54 54 0 0 0 54-54v-93h-32a30 30 0 0 1-30 25 30 30 0 0 1-30-25H432a30 30 0 0 1-30 25 30 30 0 0 1-30-25h-38z"
+              fill="#FFFFFF"
+            ></path>
+            <path
+              d="M580 553H452a19 19 0 0 1-19 19h166a19 19 0 0 1-19-19z"
+              fill="#5546CB"
+            ></path>
+            <path
+              d="M662 572h30v93a54 54 0 0 1-54 54H387a53 53 0 0 1-53-53v-94h37a19 19 0 0 1-19-19h-38v113a73 73 0 0 0 73 73h251a74 74 0 0 0 74-74V552h-32a19 19 0 0 1-18 20z"
+              fill="#5546CB"
+            ></path>
+            <path
+              d="M289 375a96 96 0 0 0 83 95v-70a30 30 0 0 1 30-30 30 30 0 0 1 30 30v71h168v-71a30 30 0 0 1 30-30 30 30 0 0 1 30 30v69a96 96 0 0 0 76-94V266a31 31 0 0 0-31-31H320a31 31 0 0 0-31 31v109z"
+              fill="#FDCD60"
+            ></path>
+            <path
+              d="M402 597a30 30 0 0 0 30-25h-59a30 30 0 0 0 29 25zM372 510h60v41.48h-60zM630 597a30 30 0 0 0 30-25h-59a30 30 0 0 0 29 25zM600 510h60v41.48h-60z"
+              fill="#5546CB"
+            ></path>
+            <path
+              d="M438 491h-67a19 19 0 0 0-19 19v43a19 19 0 0 0 19 19h63a19 19 0 0 0 19-19v-44a19 19 0 0 0-15-18z m-6 61h-60v-42h60zM662 490h-67a19 19 0 0 0-14 18v43a19 19 0 0 0 19 19h63a19 19 0 0 0 19-19v-42a19 19 0 0 0-20-19z m-1 61h-61v-41h60z"
+              fill="#FDCD60"
+            ></path>
+            <path
+              d="M786 524h-29v148h29a24 24 0 0 0 24-24V548a24 24 0 0 0-24-24z"
+              fill="#AFBCF3"
+            ></path>
+            <path
+              d="M786 504h-29V266a51 51 0 0 0-51-51h-78a116 116 0 0 0-230 0h-78a51 51 0 0 0-51 51v240l-8-2h-30a44 44 0 0 0-44 44v100a44 44 0 0 0 44 44h30l8-2v87a51 51 0 0 0 51 51h386a51 51 0 0 0 51-51v-85h29a44 44 0 0 0 44-44V548a44 44 0 0 0-44-44zM260 672h-29a24 24 0 0 1-24-24V548a24 24 0 0 1 24-24h29z m253-536a96 96 0 0 1 95 79H418a96 96 0 0 1 95-79zM289 266a31 31 0 0 1 31-31h386a31 31 0 0 1 31 31v109a96 96 0 0 1-76 94v-69a30 30 0 0 0-30-30 30 30 0 0 0-30 30v71H432v-71a30 30 0 0 0-30-30 30 30 0 0 0-30 30v70a96 96 0 0 1-83-95V266z m417 542H320a31 31 0 0 1-31-31V440a116 116 0 0 0 83 50h289a116 116 0 0 0 76-49v336a31 31 0 0 1-31 31z m104-160a24 24 0 0 1-24 24h-29V524h29a24 24 0 0 1 24 24z"
+              fill="#5546CB"
+            ></path>
+            <path
+              d="M208 548v100a24 24 0 0 0 24 24h29V524h-30a24 24 0 0 0-23 24z"
+              fill="#AFBCF3"
+            ></path>
+          </g>
+        </svg>
+      </button>
+
+      <div id="playerStats">
+        <p>
+          Level: <span id="playerLevel">1</span> | XP:
+          <span id="playerXP">0</span> | HP:
+          <span id="playerHPDisplay">100</span>
+        </p>
+        <button onclick="healPlayer()" class="w-full max-w-16">
+          <img src="assets/pokecenter.png" alt="Pokemon Center" />
+        </button>
+        <button onclick="resetPlayer()" class="w-full max-w-10">
+          <img src="assets/restart.png" alt="Restart" />
+        </button>
+      </div>
+
+      <button
+        onclick="showTeam()"
+        class="bg-blue-500 cursor-pointer font-semibold px-4 py-2 rounded-full text-white"
+      >
+        View My Team
+      </button>
+
+      <div id="inventoryDisplay"></div>
+    </section>
+
+    <div
+      id="bagModal"
+      class="hidden fixed top-1/2 left-1/2 w-full max-w-[90%] translate-[-50%,-50%] bg-white p-4 shadow-lg rounded-xl z-20"
+      style="transform: translate(-50%, -50%)"
+    >
+      <h3 class="flex items-center gap-2 font-bold text-xl">
+        <svg
+          viewBox="0 0 1024 1024"
+          class="icon w-10 h-10"
+          version="1.1"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="#000000"
+        >
+          <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+          <g
+            id="SVGRepo_tracerCarrier"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          ></g>
+          <g id="SVGRepo_iconCarrier">
+            <path
+              d="M819 234l-48-13 48-13 13-48 13 48 48 13-48 13-13 48-13-48zM867 287l-19-5 19-4 4-19 4 19 19 4-19 5-4 19-4-19z"
+              fill="#FDCD60"
+            ></path>
+            <path
+              d="M130 472l-21-5 21-5 5-21 5 21 21 5-21 5-5 20-5-20z"
+              fill="#FDCD60"
+            ></path>
+            <path
+              d="M208 246m-9 0a9 9 0 1 0 18 0 9 9 0 1 0-18 0Z"
+              fill="#5546CB"
+            ></path>
+            <path
+              d="M824 804a25 25 0 1 1 25-25 25 25 0 0 1-25 25z m0-36a10 10 0 1 0 10 10 10 10 0 0 0-10-9z"
+              fill="#5546CB"
+            ></path>
+            <path d="M166 728h78v77.34h-78z" fill="#FDCD60"></path>
+            <path
+              d="M452 509v43h128v-43a19 19 0 0 1 14-18H438a19 19 0 0 1 14 18z"
+              fill="#F97744"
+            ></path>
+            <path
+              d="M661 489h1a19 19 0 0 1 19 19v43h32v114a74 74 0 0 1-74 74H387a73 73 0 0 1-73-73V552h38v-43a19 19 0 0 1 19-19h1a116 116 0 0 1-83-50v337a31 31 0 0 0 31 31h386a31 31 0 0 0 31-31V440a116 116 0 0 1-76 49z"
+              fill="#F97744"
+            ></path>
+            <path
+              d="M334 666a53 53 0 0 0 53 53h251a54 54 0 0 0 54-54v-93h-32a30 30 0 0 1-30 25 30 30 0 0 1-30-25H432a30 30 0 0 1-30 25 30 30 0 0 1-30-25h-38z"
+              fill="#FFFFFF"
+            ></path>
+            <path
+              d="M580 553H452a19 19 0 0 1-19 19h166a19 19 0 0 1-19-19z"
+              fill="#5546CB"
+            ></path>
+            <path
+              d="M662 572h30v93a54 54 0 0 1-54 54H387a53 53 0 0 1-53-53v-94h37a19 19 0 0 1-19-19h-38v113a73 73 0 0 0 73 73h251a74 74 0 0 0 74-74V552h-32a19 19 0 0 1-18 20z"
+              fill="#5546CB"
+            ></path>
+            <path
+              d="M289 375a96 96 0 0 0 83 95v-70a30 30 0 0 1 30-30 30 30 0 0 1 30 30v71h168v-71a30 30 0 0 1 30-30 30 30 0 0 1 30 30v69a96 96 0 0 0 76-94V266a31 31 0 0 0-31-31H320a31 31 0 0 0-31 31v109z"
+              fill="#FDCD60"
+            ></path>
+            <path
+              d="M402 597a30 30 0 0 0 30-25h-59a30 30 0 0 0 29 25zM372 510h60v41.48h-60zM630 597a30 30 0 0 0 30-25h-59a30 30 0 0 0 29 25zM600 510h60v41.48h-60z"
+              fill="#5546CB"
+            ></path>
+            <path
+              d="M438 491h-67a19 19 0 0 0-19 19v43a19 19 0 0 0 19 19h63a19 19 0 0 0 19-19v-44a19 19 0 0 0-15-18z m-6 61h-60v-42h60zM662 490h-67a19 19 0 0 0-14 18v43a19 19 0 0 0 19 19h63a19 19 0 0 0 19-19v-42a19 19 0 0 0-20-19z m-1 61h-61v-41h60z"
+              fill="#FDCD60"
+            ></path>
+            <path
+              d="M786 524h-29v148h29a24 24 0 0 0 24-24V548a24 24 0 0 0-24-24z"
+              fill="#AFBCF3"
+            ></path>
+            <path
+              d="M786 504h-29V266a51 51 0 0 0-51-51h-78a116 116 0 0 0-230 0h-78a51 51 0 0 0-51 51v240l-8-2h-30a44 44 0 0 0-44 44v100a44 44 0 0 0 44 44h30l8-2v87a51 51 0 0 0 51 51h386a51 51 0 0 0 51-51v-85h29a44 44 0 0 0 44-44V548a44 44 0 0 0-44-44zM260 672h-29a24 24 0 0 1-24-24V548a24 24 0 0 1 24-24h29z m253-536a96 96 0 0 1 95 79H418a96 96 0 0 1 95-79zM289 266a31 31 0 0 1 31-31h386a31 31 0 0 1 31 31v109a96 96 0 0 1-76 94v-69a30 30 0 0 0-30-30 30 30 0 0 0-30 30v71H432v-71a30 30 0 0 0-30-30 30 30 0 0 0-30 30v70a96 96 0 0 1-83-95V266z m417 542H320a31 31 0 0 1-31-31V440a116 116 0 0 0 83 50h289a116 116 0 0 0 76-49v336a31 31 0 0 1-31 31z m104-160a24 24 0 0 1-24 24h-29V524h29a24 24 0 0 1 24 24z"
+              fill="#5546CB"
+            ></path>
+            <path
+              d="M208 548v100a24 24 0 0 0 24 24h29V524h-30a24 24 0 0 0-23 24z"
+              fill="#AFBCF3"
+            ></path>
+          </g>
+        </svg>
+        <span>Your Bag</span>
+      </h3>
+      <div id="bagContent"></div>
+      <button class="absolute top-2 right-2" onclick="closeBag()">
+        <svg
+          class="w-10 h-10"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          stroke="#bc2424"
+        >
+          <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+          <g
+            id="SVGRepo_tracerCarrier"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          ></g>
+          <g id="SVGRepo_iconCarrier">
+            <path
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              d="M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12ZM8.96963 8.96965C9.26252 8.67676 9.73739 8.67676 10.0303 8.96965L12 10.9393L13.9696 8.96967C14.2625 8.67678 14.7374 8.67678 15.0303 8.96967C15.3232 9.26256 15.3232 9.73744 15.0303 10.0303L13.0606 12L15.0303 13.9696C15.3232 14.2625 15.3232 14.7374 15.0303 15.0303C14.7374 15.3232 14.2625 15.3232 13.9696 15.0303L12 13.0607L10.0303 15.0303C9.73742 15.3232 9.26254 15.3232 8.96965 15.0303C8.67676 14.7374 8.67676 14.2625 8.96965 13.9697L10.9393 12L8.96963 10.0303C8.67673 9.73742 8.67673 9.26254 8.96963 8.96965Z"
+              fill="#bc2424"
+            ></path>
+          </g>
+        </svg>
+      </button>
+    </div>
+
+    <div
+      id="battleScreen"
+      class="hidden fixed top-1/2 left-1/2 w-full max-w-[90%] translate-[-50%,-50%] bg-white p-4 shadow-lg rounded-xl z-20"
+      style="transform: translate(-50%, -50%)"
+    >
+      <h3>⚔ Battle Start!</h3>
+      <img id="enemySprite" src="" alt="Enemy" width="64" height="64" />
+      <p><strong id="enemyName">Wild Enemy</strong></p>
+      <p><em id="enemyType"></em></p>
+
+      <p><strong>You:</strong> <span id="playerBattleHP">100</span> HP</p>
+      <div class="hp-bar"><div id="playerHPBar" class="hp-fill"></div></div>
+
+      <p><strong>Enemy:</strong> <span id="enemyHP">50</span> HP</p>
+      <div class="hp-bar"><div id="enemyHPBar" class="hp-fill"></div></div>
+
+      <div id="attackButtons" class="grid grid-cols-2 gap-4"></div>
+
+      <p id="battleLog"></p>
+    </div>
+
+    <div
+      id="teamModal"
+      class="hidden absolute top-1/2 left-1/2 w-full max-w-[90%] translate-[-50%,-50%] bg-white p-4 shadow-lg rounded-xl z-20"
+      style="transform: translate(-50%, -50%)"
+    >
+      <h3 class="font-bold mb-3 text-center text-xl">Your Team</h3>
+      <ul id="teamList" class="grid md:grid-cols-3 gap-4"></ul>
+      <button
+        class="absolute top-2 right-2"
+        onclick="document.getElementById('teamModal').style.display='none'"
+      >
+        <svg
+          class="w-10 h-10"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          stroke="#bc2424"
+        >
+          <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+          <g
+            id="SVGRepo_tracerCarrier"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          ></g>
+          <g id="SVGRepo_iconCarrier">
+            <path
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              d="M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12ZM8.96963 8.96965C9.26252 8.67676 9.73739 8.67676 10.0303 8.96965L12 10.9393L13.9696 8.96967C14.2625 8.67678 14.7374 8.67678 15.0303 8.96967C15.3232 9.26256 15.3232 9.73744 15.0303 10.0303L13.0606 12L15.0303 13.9696C15.3232 14.2625 15.3232 14.7374 15.0303 15.0303C14.7374 15.3232 14.2625 15.3232 13.9696 15.0303L12 13.0607L10.0303 15.0303C9.73742 15.3232 9.26254 15.3232 8.96965 15.0303C8.67676 14.7374 8.67676 14.2625 8.96965 13.9697L10.9393 12L8.96963 10.0303C8.67673 9.73742 8.67673 9.26254 8.96963 8.96965Z"
+              fill="#bc2424"
+            ></path>
+          </g>
+        </svg>
+      </button>
+      <button
+        onclick="clearTeam()"
+        class="bg-blue-500 cursor-pointer font-semibold px-4 py-2 rounded-full text-white block w-fit mt-6"
+      >
+        Free All Pokemon
+      </button>
+    </div>
+
+    <div id="toast"></div>
+
+    <script src="game.js"></script>
+  </body>
+</html>
